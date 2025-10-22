@@ -113,6 +113,10 @@ You can also use default bindings to simplify your code:
 ```typescript
 import { Injectable, Inject } from '@smwb/di';
 
+// Define binding keys
+const DatabaseKey = Symbol('Database');
+const UserServiceKey = Symbol('UserService');
+
 @Injectable()
 class Database {
   connect() {
@@ -123,7 +127,7 @@ class Database {
 @Injectable()
 class UserService {
   constructor(
-    @Inject(new BindingKey(Symbol('Database'), Database)) private database: Database
+    @Inject(new BindingKey(DatabaseKey, Database)) private database: Database
   ) {}
   
   getUsers() {
@@ -133,7 +137,7 @@ class UserService {
 
 // No need to explicitly bind Database, it will use the default
 const userService = container.resolve(
-  new BindingKey(Symbol('UserService'), UserService)
+  new BindingKey(UserServiceKey, UserService)
 );
 ```
 
@@ -173,7 +177,10 @@ class MyService {}
 Parameter decorator to inject dependencies:
 
 ```typescript
-constructor(@Inject(new BindingKey(Symbol('dep'))) dependency: DependencyType)
+// Define binding keys at the top of your file
+const DependencyKey = Symbol('dep');
+
+constructor(@Inject(new BindingKey(DependencyKey)) dependency: DependencyType)
 ```
 
 ### Scopes
