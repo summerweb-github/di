@@ -23,7 +23,9 @@ export default [
             commonjs(),
             typescript({
                 tsconfig: './tsconfig.json',
-                exclude: ['**/*.test.ts']
+                exclude: ['**/*.test.ts'],
+                declaration: true,
+                declarationDir: 'dist/types'
             })
         ]
     },
