@@ -3,8 +3,6 @@ import { BindingType } from './binding/const';
 import { classMetadataKey, Scope, SimpleTypes } from './const';
 import { Logger } from './logger';
 import type { Newable } from './binding/types';
-import type { InjectOptions } from './types';
-
 /**
  * Dependency Injection Container
  *
@@ -56,7 +54,10 @@ export class DIContainer {
    * @returns The resolved value or undefined if optional and not found
    * @throws Error if no binding is found for the key and not optional
    */
-  resolve<V>(key: BindingKey<V>, options?: { optional?: boolean }): V | undefined {
+  resolve<V>(
+    key: BindingKey<V>,
+    options?: { optional?: boolean }
+  ): V | undefined {
     let binding = this.registry.get(key.getKey()) as Binding<V> | undefined;
 
     const defaultBinding = key.getDefaultBinding();

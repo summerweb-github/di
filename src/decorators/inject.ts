@@ -27,6 +27,9 @@ export function Inject<T>(
     // Store both the binding and options
     meta.dependencies.set(parameterIndex, { binding, options });
 
-    Logger.log({ propertyKey, parameterIndex, binding, options }, 'inject dependency');
+    Logger.log(
+      { propertyKey, parameterIndex, binding, options },
+      'inject dependency'
+    );
   };
 }
