@@ -152,7 +152,7 @@ Global instance of `DIContainer` for managing dependencies.
 Main container class with the following methods:
 
 - `bind<V>(key: BindingKey<V>)` - Binds a key to a new binding instance
-- `resolve<V>(key: BindingKey<V>)` - Resolves a dependency by its key
+- `resolve<V>(key: BindingKey<V>, options?: { optional?: boolean })` - Resolves a dependency by its key. If optional is true and no binding is found, returns undefined instead of throwing an error.
 - `clear()` - Clears all cached instances
 
 ### `BindingKey<V>`
@@ -172,7 +172,7 @@ Class decorator to mark a class as injectable:
 class MyService {}
 ```
 
-### `@Inject(binding)`
+### `@Inject(binding, options?)`
 
 Parameter decorator to inject dependencies:
 
@@ -183,7 +183,30 @@ const DependencyKey = Symbol('dep');
 constructor(@Inject(new BindingKey(DependencyKey)) dependency: DependencyType)
 ```
 
-### Scopes
+Options can include:
+- `optional: boolean` - If true, the dependency is optional and won't throw an error if not found
+
+Example with optional dependency:
+
+```typescript
+const OptionalDependencyKey = Symbol('optional-dep');
+
+constructor(
+  @Inject(new BindingKey(OptionalDependencyKey), { optional: true })
+  optionalDependency: OptionalDependencyType | undefined
+)
+```
+
+When resolving dependencies directly:
+
+```typescript
+const optionalService = container.resolve(
+  new BindingKey(OptionalServiceKey),
+  { optional: true }
+);
+// optionalService will be undefined if no binding is found
+
+## Scopes
 
 - `Scope.SINGLETON` - Single instance shared across the application (default)
 - `Scope.TRANSIENT` - New instance created each time it's resolved

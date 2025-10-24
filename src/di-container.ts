@@ -3,6 +3,7 @@ import { BindingType } from './binding/const';
 import { classMetadataKey, Scope, SimpleTypes } from './const';
 import { Logger } from './logger';
 import type { Newable } from './binding/types';
+import type { InjectOptions } from './types';
 
 /**
  * Dependency Injection Container
@@ -51,10 +52,11 @@ export class DIContainer {
    *
    * @template V - The type of value being resolved
    * @param key - The binding key to resolve
-   * @returns The resolved value
-   * @throws Error if no binding is found for the key
+   * @param options - Options for resolution
+   * @returns The resolved value or undefined if optional and not found
+   * @throws Error if no binding is found for the key and not optional
    */
-  resolve<V>(key: BindingKey<V>): V {
+  resolve<V>(key: BindingKey<V>, options?: { optional?: boolean }): V | undefined {
     let binding = this.registry.get(key.getKey()) as Binding<V> | undefined;
 
     const defaultBinding = key.getDefaultBinding();
@@ -75,6 +77,9 @@ export class DIContainer {
     }
 
     if (!binding) {
+      if (options?.optional) {
+        return undefined;
+      }
       throw new Error(`No binding found for key: ${key.getKey().toString()}`);
     }
 
@@ -103,7 +108,7 @@ export class DIContainer {
 
     const args: unknown[] = [];
     cls[classMetadataKey]?.dependencies.forEach((dep, key) => {
-      args[key] = this.resolve(dep);
+      args[key] = this.resolve(dep.binding, dep.options);
     });
 
     const newClsInstance = new cls(...args);

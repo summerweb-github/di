@@ -1,8 +1,12 @@
 import { BindingKey } from '../binding';
 import { classMetadataKey } from '../const';
 import { Logger } from '../logger';
+import type { InjectOptions } from '../types';
 
-export function Inject<T>(binding: BindingKey<T>): ParameterDecorator {
+export function Inject<T>(
+  binding: BindingKey<T>,
+  options?: InjectOptions
+): ParameterDecorator {
   return (
     target: object,
     propertyKey: string | symbol | undefined,
@@ -20,8 +24,9 @@ export function Inject<T>(binding: BindingKey<T>): ParameterDecorator {
       constructor[classMetadataKey] = meta;
     }
 
-    meta.dependencies.set(parameterIndex, binding);
+    // Store both the binding and options
+    meta.dependencies.set(parameterIndex, { binding, options });
 
-    Logger.log({ propertyKey, parameterIndex, binding }, 'inject dependency');
+    Logger.log({ propertyKey, parameterIndex, binding, options }, 'inject dependency');
   };
 }

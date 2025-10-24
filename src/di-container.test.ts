@@ -53,7 +53,7 @@ describe('DIContainer', () => {
       const value = 'test value';
 
       container.bind(key).toConstant(value);
-      const result = container.resolve(key);
+      const result = container.resolve(key)!;
 
       expect(result).toBe(value);
     });
@@ -62,7 +62,7 @@ describe('DIContainer', () => {
       const key = new BindingKey<() => string>(Symbol('test'));
 
       container.bind(key).toFunction(testFunction);
-      const result = container.resolve(key);
+      const result = container.resolve(key)!;
 
       expect(result).toBe(testFunction);
       expect(result()).toBe('test function result');
@@ -77,11 +77,11 @@ describe('DIContainer', () => {
 
       // Set up metadata for dependency injection
       TestClass[classMetadataKey] = {
-        dependencies: new Map([[0, depKey]]),
+        dependencies: new Map([[0, { binding: depKey }]]),
         scope: Scope.TRANSIENT,
       };
 
-      const result = container.resolve(key);
+      const result = container.resolve(key)!;
 
       expect(result).toBeInstanceOf(TestClass);
       expect(result.getValue()).toBe('test class');
@@ -106,16 +106,16 @@ describe('DIContainer', () => {
 
       // Set up metadata for dependency injection
       TestClass[classMetadataKey] = {
-        dependencies: new Map([[0, depKey]]),
+        dependencies: new Map([[0, { binding: depKey }]]),
         scope: Scope.TRANSIENT,
       };
 
       TestDependency[classMetadataKey] = {
-        dependencies: new Map(),
+        dependencies: new Map<number, { binding: BindingKey<unknown>; options?: { optional?: boolean } }>(),
         scope: Scope.TRANSIENT,
       };
 
-      const result = container.resolve(key);
+      const result = container.resolve(key)!;
 
       expect(result).toBeInstanceOf(TestClass);
       expect(result.dependency).toBeInstanceOf(TestDependency);
@@ -125,7 +125,7 @@ describe('DIContainer', () => {
       const defaultValue = 'default value';
       const key = new BindingKey<string>(Symbol('test'), defaultValue);
 
-      const result = container.resolve(key);
+      const result = container.resolve(key)!;
 
       expect(result).toBe(defaultValue);
     });
@@ -133,9 +133,17 @@ describe('DIContainer', () => {
     it('should resolve a function with default binding when no explicit binding exists', () => {
       const key = new BindingKey<() => string>(Symbol('test'), testFunction);
 
-      const result = container.resolve(key);
+      const result = container.resolve(key)!;
 
       expect(result).toBe(testFunction);
+    });
+
+    it('should return undefined when no binding is found and optional is true', () => {
+      const key = new BindingKey<string>(Symbol('test'));
+
+      const result = container.resolve(key, { optional: true });
+
+      expect(result).toBeUndefined();
     });
   });
 
@@ -149,12 +157,12 @@ describe('DIContainer', () => {
 
       // Set up metadata for dependency injection
       TestClass[classMetadataKey] = {
-        dependencies: new Map([[0, depKey]]),
+        dependencies: new Map([[0, { binding: depKey }]]),
         scope: Scope.SINGLETON,
       };
 
-      const instance1 = container.resolve(key);
-      const instance2 = container.resolve(key);
+      const instance1 = container.resolve(key)!;
+      const instance2 = container.resolve(key)!;
 
       expect(instance1).toBe(instance2);
       expect(instance1.dependency).toBe(instance2.dependency);
@@ -171,12 +179,12 @@ describe('DIContainer', () => {
 
       // Set up metadata for dependency injection
       TestClass[classMetadataKey] = {
-        dependencies: new Map([[0, depKey]]),
+        dependencies: new Map([[0, { binding: depKey }]]),
         scope: Scope.TRANSIENT,
       };
 
-      const instance1 = container.resolve(key);
-      const instance2 = container.resolve(key);
+      const instance1 = container.resolve(key)!;
+      const instance2 = container.resolve(key)!;
 
       expect(instance1).not.toBe(instance2);
       // Dependencies should also be different instances
@@ -194,13 +202,13 @@ describe('DIContainer', () => {
 
       // Set up metadata for dependency injection
       TestClass[classMetadataKey] = {
-        dependencies: new Map([[0, depKey]]),
+        dependencies: new Map([[0, { binding: depKey }]]),
         scope: Scope.SINGLETON,
       };
 
-      const instance1 = container.resolve(key);
+      const instance1 = container.resolve(key)!;
       container.clear();
-      const instance2 = container.resolve(key);
+      const instance2 = container.resolve(key)!;
 
       expect(instance1).not.toBe(instance2);
       expect(instance1.dependency).not.toBe(instance2.dependency);
