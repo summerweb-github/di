@@ -65,7 +65,7 @@ describe('DIContainer', () => {
       const result = container.resolve(key);
 
       expect(result).toBe(testFunction);
-      expect(result?.()).toBe('test function result');
+      expect(result()).toBe('test function result');
     });
 
     it('should resolve a class binding', () => {
@@ -84,9 +84,9 @@ describe('DIContainer', () => {
       const result = container.resolve(key);
 
       expect(result).toBeInstanceOf(TestClass);
-      expect(result?.getValue()).toBe('test class');
-      expect(result?.dependency).toBeInstanceOf(TestDependency);
-      expect(result?.dependency.value).toBe('dependency');
+      expect(result.getValue()).toBe('test class');
+      expect(result.dependency).toBeInstanceOf(TestDependency);
+      expect(result.dependency.value).toBe('dependency');
     });
 
     it('should throw an error when no binding is found', () => {
@@ -121,7 +121,7 @@ describe('DIContainer', () => {
       const result = container.resolve(key);
 
       expect(result).toBeInstanceOf(TestClass);
-      expect(result?.dependency).toBeInstanceOf(TestDependency);
+      expect(result.dependency).toBeInstanceOf(TestDependency);
     });
 
     it('should resolve a constant with default binding when no explicit binding exists', () => {
@@ -168,7 +168,7 @@ describe('DIContainer', () => {
       const instance2 = container.resolve(key);
 
       expect(instance1).toBe(instance2);
-      expect(instance1?.dependency).toBe(instance2?.dependency);
+      expect(instance1.dependency).toBe(instance2.dependency);
     });
   });
 
@@ -191,7 +191,7 @@ describe('DIContainer', () => {
 
       expect(instance1).not.toBe(instance2);
       // Dependencies should also be different instances
-      expect(instance1?.dependency).not.toBe(instance2?.dependency);
+      expect(instance1.dependency).not.toBe(instance2.dependency);
     });
   });
 
@@ -214,7 +214,7 @@ describe('DIContainer', () => {
       const instance2 = container.resolve(key);
 
       expect(instance1).not.toBe(instance2);
-      expect(instance1?.dependency).not.toBe(instance2?.dependency);
+      expect(instance1.dependency).not.toBe(instance2.dependency);
     });
   });
 });

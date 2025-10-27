@@ -36,6 +36,26 @@ export class DIContainer {
   }
 
   /**
+   * Resolves a dependency by its key (overload for required resolution)
+   *
+   * @template V - The type of value being resolved
+   * @param key - The binding key to resolve
+   * @param options - Options for resolution with optional=false or undefined
+   * @returns The resolved value
+   */
+  resolve<V>(key: BindingKey<V>, options?: { optional?: false | undefined }): V;
+
+  /**
+   * Resolves a dependency by its key (overload for optional resolution)
+   *
+   * @template V - The type of value being resolved
+   * @param key - The binding key to resolve
+   * @param options - Options for resolution with optional=true
+   * @returns The resolved value or undefined if not found
+   */
+  resolve<V>(key: BindingKey<V>, options: { optional: true }): V | undefined;
+
+  /**
    * Resolves a dependency by its key
    *
    * This is the main method for dependency resolution. It will:
@@ -54,6 +74,10 @@ export class DIContainer {
    * @returns The resolved value or undefined if optional and not found
    * @throws Error if no binding is found for the key and not optional
    */
+  resolve<V>(
+    key: BindingKey<V>,
+    options?: { optional?: boolean }
+  ): V | undefined;
   resolve<V>(
     key: BindingKey<V>,
     options?: { optional?: boolean }

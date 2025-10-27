@@ -1,6 +1,6 @@
 {
   "name": "@smwb/di",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "description": "Zero dependencies Dependency Injection",
   "keywords": [
     "dependency",
@@ -36,8 +36,8 @@
     "lint": "eslint src/",
     "lint:fix": "eslint src/ --fix",
     "test:full": "npm run lint && npm run test:run",
-    "test": "vitest",
-    "test:run": "vitest run",
+    "test": "vitest run",
+    "test:dev": "vitest",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest run --coverage",
     "test:watch": "vitest --watch",
