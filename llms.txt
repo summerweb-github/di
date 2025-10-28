@@ -1,0 +1,316 @@
+# @smwb/di - Zero Dependencies Dependency Injection Container
+
+## Project Overview
+
+A lightweight, zero-dependency Dependency Injection (DI) container for TypeScript and JavaScript applications. This library provides a simple yet powerful way to manage dependencies in your application with features like decorator-based injection, singleton and transient scopes, and support for binding constants, functions, and classes.
+
+## Key Features
+
+- Zero external dependencies
+- Decorator-based dependency injection (`@Injectable` and `@Inject`)
+- Support for singleton and transient scopes
+- Global container instance for easy access
+- Support for binding constants, functions, and classes
+- Default binding support
+- TypeScript support with full type safety
+
+## Installation
+
+```bash
+npm install @smwb/di
+```
+
+## Core Concepts
+
+### 1. DIContainer Class
+
+The main container class that manages dependencies and their lifecycle. It allows binding values, classes, and functions to keys and resolving them when needed.
+
+Key methods:
+- `bind<V>(key: BindingKey<V>)` - Binds a key to a new binding instance
+- `resolve<V>(key: BindingKey<V>, options?: { optional?: boolean })` - Resolves a dependency by its key
+- `clear()` - Clears all cached instances
+
+### 2. BindingKey<V>
+
+Represents a key for binding dependencies. It can be constructed with:
+```typescript
+new BindingKey<V>(key: symbol, defaultBinding?: Newable<V> | V)
+```
+
+### 3. Binding<V>
+
+Represents a binding configuration for a dependency. It supports three types of bindings:
+- CONSTANT: For binding constant values
+- CLASS: For binding class constructors
+- FUNCTION: For binding functions
+
+### 4. Scopes
+
+- `Scope.SINGLETON` - Single instance shared across the application (default)
+- `Scope.TRANSIENT` - New instance created each time it's resolved
+
+## Decorators
+
+### @Injectable(options?)
+
+Class decorator to mark a class as injectable. Takes an optional options object with a scope property:
+```typescript
+@Injectable({ scope: Scope.SINGLETON }) // or Scope.TRANSIENT
+class MyService {}
+```
+
+### @Inject(binding, options?)
+
+Parameter decorator to inject dependencies. Takes a BindingKey and optional options:
+```typescript
+const DependencyKey = Symbol('dep');
+constructor(@Inject(new BindingKey(DependencyKey)) dependency: DependencyType)
+```
+
+Options can include:
+- `optional: boolean` - If true, the dependency is optional and won't throw an error if not found
+
+## Usage Examples
+
+### Basic Setup
+
+First, define your services and dependencies using decorators:
+
+```typescript
+import { Injectable, Inject } from '@smwb/di';
+import { Database } from './database';
+import { Logger } from './logger';
+
+// Define a binding key for your dependencies
+const DatabaseKey = Symbol('Database');
+const LoggerKey = Symbol('Logger');
+
+@Injectable()
+class UserService {
+  constructor(
+    @Inject(new BindingKey(DatabaseKey)) private database: Database,
+    @Inject(new BindingKey(LoggerKey)) private logger: Logger
+  ) {}
+
+  getUsers() {
+    this.logger.log('Fetching users');
+    return this.database.query('SELECT * FROM users');
+  }
+}
+
+@Injectable({ scope: Scope.TRANSIENT })
+class OrderService {
+  constructor(
+    @Inject(new BindingKey(DatabaseKey)) private database: Database
+  ) {}
+
+  getOrders() {
+    return this.database.query('SELECT * FROM orders');
+  }
+}
+```
+
+### Binding Dependencies
+
+Configure your dependency container:
+
+```typescript
+import { container, BindingKey } from '@smwb/di';
+import { Database } from './database';
+import { Logger } from './logger';
+import { UserService } from './user-service';
+import { OrderService } from './order-service';
+
+// Bind your dependencies
+const DatabaseKey = Symbol('Database');
+const LoggerKey = Symbol('Logger');
+const UserServiceKey = Symbol('UserService');
+const OrderServiceKey = Symbol('OrderService');
+
+container.bind(new BindingKey(DatabaseKey)).toClass(Database);
+container.bind(new BindingKey(LoggerKey)).toClass(Logger);
+container.bind(new BindingKey(UserServiceKey)).toClass(UserService);
+container.bind(new BindingKey(OrderServiceKey)).toClass(OrderService);
+
+// Or bind constants
+container.bind(new BindingKey('API_URL')).toConstant('https://api.example.com');
+
+// Or bind functions
+container.bind(new BindingKey('randomNumber')).toFunction(() => Math.random());
+```
+
+### Resolving Dependencies
+
+Get instances of your services:
+
+```typescript
+import { container, BindingKey } from '@smwb/di';
+import { UserService } from './user-service';
+
+const UserServiceKey = Symbol('UserService');
+
+// Resolve dependencies
+const userService = container.resolve(new BindingKey(UserServiceKey));
+const users = userService.getUsers();
+
+// For constants and functions
+const apiUrl = container.resolve(new BindingKey('API_URL'));
+const randomNumber = container.resolve(new BindingKey('randomNumber'));
+```
+
+### Default Bindings
+
+You can also use default bindings to simplify your code:
+
+```typescript
+import { Injectable, Inject } from '@smwb/di';
+
+// Define binding keys
+const DatabaseKey = Symbol('Database');
+const UserServiceKey = Symbol('UserService');
+
+@Injectable()
+class Database {
+  connect() {
+    // Database connection logic
+  }
+}
+
+@Injectable()
+class UserService {
+  constructor(
+    @Inject(new BindingKey(DatabaseKey, Database)) private database: Database
+  ) {}
+  
+  getUsers() {
+    return this.database.connect();
+  }
+}
+
+// No need to explicitly bind Database, it will use the default
+const userService = container.resolve(
+  new BindingKey(UserServiceKey, UserService)
+);
+```
+
+### Optional Dependencies
+
+When resolving dependencies directly:
+
+```typescript
+const optionalService = container.resolve(
+  new BindingKey(OptionalServiceKey),
+  { optional: true }
+);
+// optionalService will be undefined if no binding is found
+```
+
+## API Reference
+
+### Global container instance
+
+A singleton instance of the DIContainer that can be used throughout the application for managing dependencies:
+```typescript
+export const container = new DIContainer();
+```
+
+### DIContainer methods
+
+1. `bind<V>(key: BindingKey<V>)` - Binds a key to a new binding instance
+   - Returns the created binding instance for further configuration
+
+2. `resolve<V>(key: BindingKey<V>, options?: { optional?: boolean })` - Resolves a dependency by its key
+   - If optional is true and no binding is found, returns undefined instead of throwing an error
+   - Supports overload signatures for type safety with optional dependencies
+
+3. `clear()` - Clears all cached instances
+   - This method clears the instance cache but keeps the bindings
+   - Useful for resetting the container state without re-registering bindings
+
+### Binding configuration methods
+
+1. `toScope(scope: ScopeEnum)` - Sets the scope for a binding (SINGLETON or TRANSIENT)
+
+2. `toClass(cls: Newable<V>)` - Configures the binding to instantiate a class
+
+3. `toConstant(v: V)` - Configures the binding to return a constant value
+
+4. `toFunction(fn: Function)` - Configures the binding to return a function
+
+## Type Definitions
+
+### Core Types
+
+```typescript
+// Scope enumeration
+export enum Scope {
+  SINGLETON = 'SINGLETON',
+  TRANSIENT = 'TRANSIENT',
+}
+
+// Binding types
+export enum BindingType {
+  CONSTANT = 'CONSTANT',
+  CLASS = 'CLASS',
+  FUNCTION = 'FUNCTION',
+}
+
+// Class metadata
+export interface ClassMetadata {
+  scope?: ScopeEnum;
+  dependencies: Map<
+    number,
+    { binding: BindingKey<unknown>; options?: InjectOptions }
+  >;
+}
+
+// Injection options
+export interface InjectOptions {
+  optional?: boolean;
+}
+```
+
+## Project Structure
+
+```
+src/
+├── binding/
+│   ├── binding.ts      # Binding implementation
+│   ├── bindingKey.ts   # BindingKey implementation
+│   ├── const.ts        # Binding constants
+│   ├── index.ts        # Binding exports
+│   └── types.ts        # Binding type definitions
+├── decorators/
+│   ├── index.ts        # Decorator exports
+│   ├── inject.ts       # @Inject decorator
+│   └── injectable.ts   # @Injectable decorator
+├── const.ts            # Core constants
+├── di-container.ts     # DIContainer implementation
+├── index.ts            # Main exports
+├── logger.ts           # Logger utility
+└── types.ts            # Core type definitions
+```
+
+## Package Information
+
+- Name: @smwb/di
+- Version: 1.0.7
+- License: MIT
+- Author: Elfen Lied
+- Repository: https://github.com/summerweb-github/di
+
+## Development Scripts
+
+- `npm run build` - Build the project
+- `npm run lint` - Lint the source code
+- `npm run test` - Run tests
+- `npm run test:coverage` - Run tests with coverage report
+
+## Testing
+
+The project uses vitest for testing with the following commands:
+- `npm test` - Run tests once
+- `npm run test:dev` - Run tests in watch mode
+- `npm run test:ui` - Run tests with UI
+- `npm run test:coverage` - Run tests with coverage report
