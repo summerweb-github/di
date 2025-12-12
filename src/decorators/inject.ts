@@ -24,7 +24,6 @@ export function Inject<T>(
       constructor[classMetadataKey] = meta;
     }
 
-    // Store both the binding and options
     meta.dependencies.set(parameterIndex, { binding, options });
 
     Logger.log(
