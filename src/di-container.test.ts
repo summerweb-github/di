@@ -4,7 +4,6 @@ import { Scope, classMetadataKey } from './const';
 
 import { DIContainer } from './di-container';
 
-// Test classes for testing
 class TestDependency {
   public value = 'dependency';
 }
@@ -21,7 +20,6 @@ class TestClass {
   }
 }
 
-// Test function
 function testFunction() {
   return 'test function result';
 }
@@ -31,7 +29,6 @@ describe('DIContainer', () => {
 
   beforeEach(() => {
     container = new DIContainer();
-    // Mock Logger.log to avoid console output in tests
     vi.spyOn(console, 'log').mockImplementation(() => {
       // empty
     });
@@ -104,7 +101,6 @@ describe('DIContainer', () => {
         TestDependency
       );
 
-      // Set up metadata for dependency injection
       TestClass[classMetadataKey] = {
         dependencies: new Map([[0, { binding: depKey }]]),
         scope: Scope.TRANSIENT,
@@ -158,7 +154,6 @@ describe('DIContainer', () => {
       container.bind(depKey).toClass(TestDependency).toScope(Scope.SINGLETON);
       container.bind(key).toClass(TestClass).toScope(Scope.SINGLETON);
 
-      // Set up metadata for dependency injection
       TestClass[classMetadataKey] = {
         dependencies: new Map([[0, { binding: depKey }]]),
         scope: Scope.SINGLETON,
@@ -180,7 +175,6 @@ describe('DIContainer', () => {
       container.bind(depKey).toClass(TestDependency).toScope(Scope.TRANSIENT);
       container.bind(key).toClass(TestClass).toScope(Scope.TRANSIENT);
 
-      // Set up metadata for dependency injection
       TestClass[classMetadataKey] = {
         dependencies: new Map([[0, { binding: depKey }]]),
         scope: Scope.TRANSIENT,
@@ -190,7 +184,6 @@ describe('DIContainer', () => {
       const instance2 = container.resolve(key);
 
       expect(instance1).not.toBe(instance2);
-      // Dependencies should also be different instances
       expect(instance1.dependency).not.toBe(instance2.dependency);
     });
   });
@@ -203,7 +196,6 @@ describe('DIContainer', () => {
       container.bind(depKey).toClass(TestDependency).toScope(Scope.SINGLETON);
       container.bind(key).toClass(TestClass).toScope(Scope.SINGLETON);
 
-      // Set up metadata for dependency injection
       TestClass[classMetadataKey] = {
         dependencies: new Map([[0, { binding: depKey }]]),
         scope: Scope.SINGLETON,
