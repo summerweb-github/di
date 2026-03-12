@@ -1,6 +1,6 @@
 {
   "name": "@smwb/di",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "description": "Zero dependencies Dependency Injection",
   "keywords": [
     "dependency",
@@ -13,7 +13,7 @@
     "type": "git",
     "url": "git+https://github.com/summerweb-github/di.git"
   },
-  "main": "./dist/index.cjs.js",
+  "main": "./dist/index.cjs",
   "module": "./dist/index.esm.js",
   "files": [
     "dist/",
@@ -22,13 +22,13 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "require": "./dist/index.cjs.js",
+      "require": "./dist/index.cjs",
       "import": "./dist/index.esm.js"
     }
   },
   "types": "./dist/index.d.ts",
   "browser": {
-    "./dist/index.cjs.js": "./dist/index.esm.js"
+    "./dist/index.cjs": "./dist/index.esm.js"
   },
   "scripts": {
     "build": "rollup -c",
