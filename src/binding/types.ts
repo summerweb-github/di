@@ -2,11 +2,15 @@ import { Scope } from '../const';
 import { BindingType } from './const';
 import type { EnumObject } from '../types.ts';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export type Newable<T = any> = new (...args: any[]) => T;
+export type Newable<T = unknown> = new (...args: unknown[]) => T;
 
-// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
-export type BindingSource<V> = Newable<V> | V | Function;
+export type Callable = (...args: unknown[]) => unknown;
+
+export type BindingSource<V> = Newable<V> | V | Callable;
+
+export type LazyClassLoader<V> = () => Newable<V> | Promise<Newable<V>>;
+export type LazyFunctionLoader<V> = () => V | Promise<V>;
+export type LazyConstantLoader<V> = () => V | Promise<V>;
 
 export type BindingTypeEnum = EnumObject<typeof BindingType>;
 export type ScopeEnum = EnumObject<typeof Scope>;

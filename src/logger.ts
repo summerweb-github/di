@@ -1,12 +1,8 @@
-// eslint-disable-next-line @typescript-eslint/no-extraneous-class
-export class Logger {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  public static log: (...data: any[]) => void = () => {
-    // empty function
-  };
+type LogFn = (...data: unknown[]) => void;
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  public static setLogger(logger: (...data: any[]) => void) {
+export const Logger = {
+  log: ((..._data: unknown[]) => undefined) as LogFn,
+  setLogger(logger: LogFn) {
     Logger.log = logger;
-  }
-}
+  },
+};

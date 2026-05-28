@@ -8,7 +8,7 @@ export function Injectable(
     scope: Scope.SINGLETON,
   }
 ): ClassDecorator {
-  return ((target: Newable<unknown>) => {
+  return ((target: Newable) => {
     let meta = target[classMetadataKey];
     if (!meta) {
       meta = {

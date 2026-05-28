@@ -35,6 +35,14 @@ jobs:
     
     - name: Build
       run: npm run build
+
+    - name: Verify light packages
+      run: |
+        test -f dist-light-esm/index.js
+        test -f dist-light-esm/package.json
+        test -f dist-light-cjs/index.cjs
+        test -f dist-light-cjs/package.json
+        ! grep -E '(^|[[:space:]])//|/\*|\*/' dist-light-esm/index.js dist-light-cjs/index.cjs dist/index.esm.js dist/index.cjs
       
     - name: Check if version has changed
       id: version_check
@@ -65,5 +73,7 @@ jobs:
       run: |
         echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > .npmrc
         npm publish --access public
+        npm publish dist-light-esm --access public
+        npm publish dist-light-cjs --access public
       env:
         NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

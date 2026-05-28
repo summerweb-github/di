@@ -31,7 +31,7 @@
     "./dist/index.cjs": "./dist/index.esm.js"
   },
   "scripts": {
-    "build": "rollup -c",
+    "build": "rollup -c && node scripts/prepare-light-packages.mjs",
     "dev": "rollup -c -w",
     "lint": "eslint src/",
     "lint:fix": "eslint src/ --fix",
@@ -47,6 +47,7 @@
     "@eslint/js": "^9.37.0",
     "@rollup/plugin-commonjs": "^28.0.6",
     "@rollup/plugin-node-resolve": "^16.0.3",
+    "@rollup/plugin-terser": "^1.0.0",
     "@rollup/plugin-typescript": "^12.1.4",
     "@types/node": "^24.7.2",
     "@vitest/browser": "^3.2.4",

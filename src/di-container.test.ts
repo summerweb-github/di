@@ -29,9 +29,7 @@ describe('DIContainer', () => {
 
   beforeEach(() => {
     container = new DIContainer();
-    vi.spyOn(console, 'log').mockImplementation(() => {
-      // empty
-    });
+    vi.spyOn(console, 'log').mockImplementation(() => undefined);
   });
 
   describe('bind', () => {
@@ -72,7 +70,6 @@ describe('DIContainer', () => {
       container.bind(depKey).toClass(TestDependency).toScope(Scope.TRANSIENT);
       container.bind(key).toClass(TestClass).toScope(Scope.TRANSIENT);
 
-      // Set up metadata for dependency injection
       TestClass[classMetadataKey] = {
         dependencies: new Map([[0, { binding: depKey }]]),
         scope: Scope.TRANSIENT,
@@ -207,6 +204,225 @@ describe('DIContainer', () => {
 
       expect(instance1).not.toBe(instance2);
       expect(instance1.dependency).not.toBe(instance2.dependency);
+    });
+  });
+
+  describe('lazy class binding', () => {
+    it('should resolve a lazy class with sync loader', () => {
+      const key = new BindingKey<TestClass>(Symbol('test'));
+      const depKey = new BindingKey<TestDependency>(Symbol('dependency'));
+      const loader = vi.fn(() => TestClass);
+
+      container.bind(depKey).toClass(TestDependency).toScope(Scope.TRANSIENT);
+      container.bind(key).toLazyClass(loader).toScope(Scope.TRANSIENT);
+
+      TestClass[classMetadataKey] = {
+        dependencies: new Map([[0, { binding: depKey }]]),
+        scope: Scope.TRANSIENT,
+      };
+
+      const result = container.resolve(key);
+
+      expect(loader).toHaveBeenCalledTimes(1);
+      expect(result).toBeInstanceOf(TestClass);
+      expect(result.dependency).toBeInstanceOf(TestDependency);
+    });
+
+    it('should call sync loader only once for singleton scope', () => {
+      const key = new BindingKey<TestClass>(Symbol('test'));
+      const loader = vi.fn(() => TestClass);
+
+      container.bind(key).toLazyClass(loader).toScope(Scope.SINGLETON);
+
+      TestClass[classMetadataKey] = {
+        dependencies: new Map(),
+        scope: Scope.SINGLETON,
+      };
+
+      const instance1 = container.resolve(key);
+      const instance2 = container.resolve(key);
+
+      expect(loader).toHaveBeenCalledTimes(1);
+      expect(instance1).toBe(instance2);
+    });
+
+    it('should create new instances for transient scope', () => {
+      const key = new BindingKey<TestClass>(Symbol('test'));
+      const loader = vi.fn(() => TestClass);
+
+      container.bind(key).toLazyClass(loader).toScope(Scope.TRANSIENT);
+
+      TestClass[classMetadataKey] = {
+        dependencies: new Map(),
+        scope: Scope.TRANSIENT,
+      };
+
+      const instance1 = container.resolve(key);
+      const instance2 = container.resolve(key);
+
+      expect(loader).toHaveBeenCalledTimes(1);
+      expect(instance1).not.toBe(instance2);
+    });
+
+    it('should resolve a lazy class with async loader', async () => {
+      const key = new BindingKey<TestClass>(Symbol('test'));
+      const loader = vi.fn(() => Promise.resolve(TestClass));
+
+      container.bind(key).toLazyClass(loader).toScope(Scope.SINGLETON);
+
+      TestClass[classMetadataKey] = {
+        dependencies: new Map(),
+        scope: Scope.SINGLETON,
+      };
+
+      const result = await container.resolveAsync(key);
+
+      expect(loader).toHaveBeenCalledTimes(1);
+      expect(result).toBeInstanceOf(TestClass);
+    });
+
+    it('should throw when async loader is used with sync resolve', () => {
+      const key = new BindingKey<TestClass>(Symbol('test'));
+
+      container
+        .bind(key)
+        .toLazyClass(() => Promise.resolve(TestClass))
+        .toScope(Scope.SINGLETON);
+
+      expect(() => container.resolve(key)).toThrow(
+        `Lazy binding requires resolveAsync for key: ${key.getKey().toString()}`
+      );
+    });
+
+    it('should reload class after clear', () => {
+      const key = new BindingKey<TestClass>(Symbol('test'));
+      const loader = vi.fn(() => TestClass);
+
+      container.bind(key).toLazyClass(loader).toScope(Scope.SINGLETON);
+
+      TestClass[classMetadataKey] = {
+        dependencies: new Map(),
+        scope: Scope.SINGLETON,
+      };
+
+      container.resolve(key);
+      container.clear();
+      container.resolve(key);
+
+      expect(loader).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe('lazy function binding', () => {
+    it('should resolve a lazy function with sync loader', () => {
+      const key = new BindingKey<() => string>(Symbol('test'));
+      const loader = vi.fn(() => testFunction);
+
+      container.bind(key).toLazyFunction(loader);
+
+      const result = container.resolve(key);
+
+      expect(loader).toHaveBeenCalledTimes(1);
+      expect(result).toBe(testFunction);
+      expect(result()).toBe('test function result');
+    });
+
+    it('should call sync loader only once', () => {
+      const key = new BindingKey<() => string>(Symbol('test'));
+      const loader = vi.fn(() => testFunction);
+
+      container.bind(key).toLazyFunction(loader);
+
+      container.resolve(key);
+      container.resolve(key);
+
+      expect(loader).toHaveBeenCalledTimes(1);
+    });
+
+    it('should resolve a lazy function with async loader', async () => {
+      const key = new BindingKey<() => string>(Symbol('test'));
+      const loader = vi.fn(() => Promise.resolve(testFunction));
+
+      container.bind(key).toLazyFunction(loader);
+
+      const result = await container.resolveAsync(key);
+
+      expect(loader).toHaveBeenCalledTimes(1);
+      expect(result).toBe(testFunction);
+    });
+
+    it('should reload function after clear', () => {
+      const key = new BindingKey<() => string>(Symbol('test'));
+      const loader = vi.fn(() => testFunction);
+
+      container.bind(key).toLazyFunction(loader);
+
+      container.resolve(key);
+      container.clear();
+      container.resolve(key);
+
+      expect(loader).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe('lazy constant binding', () => {
+    it('should resolve a lazy constant from sync function', () => {
+      const key = new BindingKey<string>(Symbol('test'));
+      const loader = vi.fn(() => 'computed value');
+
+      container.bind(key).toLazyConstant(loader);
+
+      const result = container.resolve(key);
+
+      expect(loader).toHaveBeenCalledTimes(1);
+      expect(result).toBe('computed value');
+    });
+
+    it('should call sync loader only once', () => {
+      const key = new BindingKey<string>(Symbol('test'));
+      const loader = vi.fn(() => 'computed value');
+
+      container.bind(key).toLazyConstant(loader);
+
+      container.resolve(key);
+      container.resolve(key);
+
+      expect(loader).toHaveBeenCalledTimes(1);
+    });
+
+    it('should resolve a lazy constant from promise', async () => {
+      const key = new BindingKey<string>(Symbol('test'));
+      const loader = vi.fn(() => Promise.resolve('async value'));
+
+      container.bind(key).toLazyConstant(loader);
+
+      const result = await container.resolveAsync(key);
+
+      expect(loader).toHaveBeenCalledTimes(1);
+      expect(result).toBe('async value');
+    });
+
+    it('should throw when async loader is used with sync resolve', () => {
+      const key = new BindingKey<string>(Symbol('test'));
+
+      container.bind(key).toLazyConstant(() => Promise.resolve('async value'));
+
+      expect(() => container.resolve(key)).toThrow(
+        `Lazy binding requires resolveAsync for key: ${key.getKey().toString()}`
+      );
+    });
+
+    it('should reload constant after clear', () => {
+      const key = new BindingKey<string>(Symbol('test'));
+      const loader = vi.fn(() => 'computed value');
+
+      container.bind(key).toLazyConstant(loader);
+
+      container.resolve(key);
+      container.clear();
+      container.resolve(key);
+
+      expect(loader).toHaveBeenCalledTimes(2);
     });
   });
 });

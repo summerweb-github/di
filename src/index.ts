@@ -9,4 +9,8 @@ export type {
   BindingSource,
   BindingTypeEnum,
   Newable,
+  Callable,
+  LazyClassLoader,
+  LazyFunctionLoader,
+  LazyConstantLoader,
 } from './binding';

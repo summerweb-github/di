@@ -1,7 +1,9 @@
 import { BindingKey } from '../binding';
 import { classMetadataKey } from '../const';
 import { Logger } from '../logger';
-import type { InjectOptions } from '../types';
+import type { ClassMetadata, InjectOptions } from '../types';
+
+type InjectableConstructor = abstract new (...args: unknown[]) => unknown;
 
 export function Inject<T>(
   binding: BindingKey<T>,
@@ -12,9 +14,13 @@ export function Inject<T>(
     propertyKey: string | symbol | undefined,
     parameterIndex: number
   ) => {
-    const constructor =
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
-      propertyKey === undefined ? (target as Function) : target.constructor;
+    const constructor = (
+      propertyKey === undefined
+        ? (target as InjectableConstructor)
+        : target.constructor
+    ) as InjectableConstructor & {
+      [classMetadataKey]?: ClassMetadata;
+    };
 
     let meta = constructor[classMetadataKey];
     if (!meta) {

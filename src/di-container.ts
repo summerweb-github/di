@@ -2,25 +2,14 @@ import { Binding, BindingKey } from './binding';
 import { BindingType } from './binding/const';
 import { classMetadataKey, Scope, SimpleTypes } from './const';
 import { Logger } from './logger';
-import type { Newable } from './binding/types';
-/**
- * Dependency Injection Container
- *
- * A container that manages dependencies and their lifecycle.
- * It allows binding values, classes, and functions to keys and resolving them when needed.
- * Supports singleton and transient scopes for class bindings.
- */
+import type { Callable, Newable } from './binding/types';
+
 export class DIContainer {
   private registry = new Map<symbol, Binding<unknown>>();
   private instances = new Map<symbol, unknown>();
+  private lazySources = new Map<symbol, unknown>();
+  private lazyLoadingPromises = new Map<symbol, Promise<unknown>>();
 
-  /**
-   * Binds a key to a new binding instance
-   *
-   * @template V - The type of value being bound
-   * @param key - The binding key to register
-   * @returns The created binding instance for further configuration
-   */
   bind<V>(key: BindingKey<V>) {
     const binding = new Binding<V>(key);
     this.registry.set(key.getKey(), binding);
@@ -35,45 +24,10 @@ export class DIContainer {
     return binding;
   }
 
-  /**
-   * Resolves a dependency by its key (overload for required resolution)
-   *
-   * @template V - The type of value being resolved
-   * @param key - The binding key to resolve
-   * @param options - Options for resolution with optional=false or undefined
-   * @returns The resolved value
-   */
   resolve<V>(key: BindingKey<V>, options?: { optional?: false | undefined }): V;
 
-  /**
-   * Resolves a dependency by its key (overload for optional resolution)
-   *
-   * @template V - The type of value being resolved
-   * @param key - The binding key to resolve
-   * @param options - Options for resolution with optional=true
-   * @returns The resolved value or undefined if not found
-   */
   resolve<V>(key: BindingKey<V>, options: { optional: true }): V | undefined;
 
-  /**
-   * Resolves a dependency by its key
-   *
-   * This is the main method for dependency resolution. It will:
-   * 1. Look for an existing binding for the key
-   * 2. If no binding exists but a default is provided, create a new binding
-   * 3. Return constant values directly
-   * 4. Return function values directly
-   * 5. For class bindings:
-   *    - Return existing instance if in singleton scope
-   *    - Create new instance resolving dependencies recursively
-   *    - Store instance if in singleton scope
-   *
-   * @template V - The type of value being resolved
-   * @param key - The binding key to resolve
-   * @param options - Options for resolution
-   * @returns The resolved value or undefined if optional and not found
-   * @throws Error if no binding is found for the key and not optional
-   */
   resolve<V>(
     key: BindingKey<V>,
     options?: { optional?: boolean }
@@ -82,6 +36,38 @@ export class DIContainer {
     key: BindingKey<V>,
     options?: { optional?: boolean }
   ): V | undefined {
+    const result = this.resolveInternal(key, options);
+
+    if (result instanceof Promise) {
+      throw new Error(
+        `Lazy binding requires resolveAsync for key: ${key.getKey().toString()}`
+      );
+    }
+
+    return result;
+  }
+
+  resolveAsync<V>(
+    key: BindingKey<V>,
+    options?: { optional?: false | undefined }
+  ): Promise<V>;
+
+  resolveAsync<V>(
+    key: BindingKey<V>,
+    options: { optional: true }
+  ): Promise<V | undefined>;
+
+  resolveAsync<V>(
+    key: BindingKey<V>,
+    options?: { optional?: boolean }
+  ): Promise<V | undefined> {
+    return Promise.resolve(this.resolveInternal(key, options));
+  }
+
+  private resolveInternal<V>(
+    key: BindingKey<V>,
+    options?: { optional?: boolean }
+  ): V | Promise<V> | undefined {
     let binding = this.registry.get(key.getKey()) as Binding<V> | undefined;
 
     const defaultBinding = key.getDefaultBinding();
@@ -93,9 +79,9 @@ export class DIContainer {
         if (defaultBinding.toString().startsWith('class')) {
           const scope =
             defaultBinding[classMetadataKey]?.scope ?? Scope.SINGLETON;
-          newBinding.toClass(defaultBinding as Newable).toScope(scope);
+          newBinding.toClass(defaultBinding as Newable<V>).toScope(scope);
         } else {
-          newBinding.toFunction(defaultBinding);
+          newBinding.toFunction(defaultBinding as Callable);
         }
       }
       binding = newBinding;
@@ -116,37 +102,153 @@ export class DIContainer {
       return binding.getFunction();
     }
 
+    if (binding.getType() === BindingType.LAZY_FUNCTION) {
+      return this.resolveLazyValue(binding.getLazyFunctionLoader(), key);
+    }
+
+    if (binding.getType() === BindingType.LAZY_CONSTANT) {
+      return this.resolveLazyValue(binding.getLazyConstantLoader(), key);
+    }
+
+    if (binding.getType() === BindingType.LAZY_CLASS) {
+      return this.resolveLazyClass(binding, key);
+    }
+
+    return this.resolveClass(binding, key);
+  }
+
+  private resolveClass<V>(binding: Binding<V>, key: BindingKey<V>): V {
     const cls = binding.getClass();
-    const clsInstance = this.instances.get(key.getKey());
+    const symbolKey = key.getKey();
+    const clsInstance = this.instances.get(symbolKey);
     if (clsInstance) {
       Logger.log(
         {
           key: binding.getKey().getKey(),
           type: binding.getType(),
           scope: binding.getScope(),
-          name: cls.constructor.name,
+          name: cls.name,
         },
         'resolved'
       );
       return clsInstance as V;
     }
 
+    return this.instantiateClass(cls, binding, key);
+  }
+
+  private resolveLazyClass<V>(
+    binding: Binding<V>,
+    key: BindingKey<V>
+  ): V | Promise<V> {
+    const symbolKey = key.getKey();
+
+    if (binding.getScope() === Scope.SINGLETON) {
+      const clsInstance = this.instances.get(symbolKey);
+      if (clsInstance) {
+        Logger.log(
+          {
+            key: binding.getKey().getKey(),
+            type: binding.getType(),
+            scope: binding.getScope(),
+            name: (clsInstance as object).constructor.name,
+          },
+          'resolved'
+        );
+        return clsInstance as V;
+      }
+    }
+
+    const cachedClass = this.lazySources.get(symbolKey) as
+      | Newable<V>
+      | undefined;
+    if (cachedClass) {
+      return this.instantiateClass(cachedClass, binding, key);
+    }
+
+    const loadingPromise = this.lazyLoadingPromises.get(symbolKey) as
+      | Promise<V>
+      | undefined;
+    if (loadingPromise) {
+      return loadingPromise;
+    }
+
+    const loadResult = binding.getLazyClassLoader()();
+    if (loadResult instanceof Promise) {
+      const promise = loadResult.then((cls) => {
+        this.lazySources.set(symbolKey, cls);
+        this.lazyLoadingPromises.delete(symbolKey);
+        return this.instantiateClass(cls, binding, key);
+      });
+      this.lazyLoadingPromises.set(symbolKey, promise);
+      return promise;
+    }
+
+    this.lazySources.set(symbolKey, loadResult);
+    return this.instantiateClass(loadResult, binding, key);
+  }
+
+  private resolveLazyValue<V>(
+    loader: () => V | Promise<V>,
+    key: BindingKey<V>
+  ): V | Promise<V> {
+    const symbolKey = key.getKey();
+    if (this.lazySources.has(symbolKey)) {
+      return this.lazySources.get(symbolKey) as V;
+    }
+
+    const loadingPromise = this.lazyLoadingPromises.get(symbolKey) as
+      | Promise<V>
+      | undefined;
+    if (loadingPromise) {
+      return loadingPromise;
+    }
+
+    const loadResult = loader();
+    if (loadResult instanceof Promise) {
+      const promise = loadResult.then((value) => {
+        this.lazySources.set(symbolKey, value);
+        this.lazyLoadingPromises.delete(symbolKey);
+        return value;
+      });
+      this.lazyLoadingPromises.set(symbolKey, promise);
+      return promise;
+    }
+
+    this.lazySources.set(symbolKey, loadResult);
+    return loadResult;
+  }
+
+  private instantiateClass<V>(
+    cls: Newable<V>,
+    binding: Binding<V>,
+    key: BindingKey<V>
+  ): V {
+    const symbolKey = key.getKey();
+
+    if (binding.getScope() === Scope.SINGLETON) {
+      const existingInstance = this.instances.get(symbolKey);
+      if (existingInstance) {
+        return existingInstance as V;
+      }
+    }
+
     const args: unknown[] = [];
-    cls[classMetadataKey]?.dependencies.forEach((dep, key) => {
-      args[key] = this.resolve(dep.binding, dep.options);
+    cls[classMetadataKey]?.dependencies.forEach((dep, index) => {
+      args[index] = this.resolve(dep.binding, dep.options);
     });
 
     const newClsInstance = new cls(...args);
 
     if (binding.getScope() === Scope.SINGLETON) {
-      this.instances.set(key.getKey(), newClsInstance);
+      this.instances.set(symbolKey, newClsInstance);
     }
     Logger.log(
       {
         key: binding.getKey().getKey(),
         type: binding.getType(),
         scope: binding.getScope(),
-        name: cls.constructor.name,
+        name: cls.name,
       },
       'created and resolved'
     );
@@ -154,22 +256,12 @@ export class DIContainer {
     return newClsInstance;
   }
 
-  /**
-   * Clears all cached instances
-   *
-   * This method clears the instance cache but keeps the bindings.
-   * Useful for resetting the container state without re-registering bindings.
-   */
   public clear(): void {
     Logger.log('Clearing DI container cache');
     this.instances.clear();
+    this.lazySources.clear();
+    this.lazyLoadingPromises.clear();
   }
 }
 
-/**
- * Global instance of the DIContainer
- *
- * A singleton instance of the DIContainer that can be used throughout the application
- * for managing dependencies.
- */
 export const container = new DIContainer();
